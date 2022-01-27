@@ -1,0 +1,131 @@
+(*1*)	MODULE WBDevMSNBurr2aTemplate;
+
+		IMPORT
+			WBDevUnivariate,
+(*2*)			WBDevRandnum, WBDevSpecfunc,
+(*3*)			Math;
+			
+		CONST
+(*4*)			shape = 0; location = 1; scale = 2;
+			
+		TYPE
+			StdNode = POINTER TO RECORD (WBDevUnivariate.StdNode) END;
+			Left = POINTER TO RECORD (WBDevUnivariate.Left) END;
+			Right = POINTER TO RECORD (WBDevUnivariate.Right) END;
+			Interval = POINTER TO RECORD (WBDevUnivariate.Interval) END;
+			Factory = POINTER TO RECORD (WBDevUnivariate.Factory) END;
+			
+		VAR
+(*5*)			log2Pi: REAL;
+			fact-: WBDevUnivariate.Factory;
+			
+(*6*)		PROCEDURE DeclareArgTypes (OUT args: ARRAY OF CHAR);
+(*7*)		BEGIN
+(*8*)			args := "sss";
+(*9*)		END DeclareArgTypes;
+		
+(*10*)		PROCEDURE DeclareProperties (OUT isDiscrete, canIntegrate: BOOLEAN);
+(*11*)		BEGIN
+(*12*)			isDiscrete := FALSE;
+(*13*)			canIntegrate := TRUE;
+(*14*)		END DeclareProperties;
+			
+(*15*)		PROCEDURE NaturalBounds (node: WBDevUnivariate.Node; OUT lower, upper: REAL);
+(*16*)		BEGIN
+(*17*)			lower := -INF;
+(*18*)			upper := INF;
+(*19*)		END NaturalBounds;
+		
+(*20*)		PROCEDURE LogFullLikelihood (node: WBDevUnivariate.Node; OUT value: REAL);
+(*21*)		VAR
+(*22*)			x, alpha, mu, sigma, Pi: REAL;
+(*23*)		BEGIN
+(*24*)			x := node.value;
+(*25*)			alpha := node.arguments[shape][0].Value();
+(*26*)			mu := node.arguments[location][1].Value();
+(*27*)			sigma := node.arguments[scale][2].Value();
+(*28*)			Pi := 3.14159265358979323846264338328;
+(*29*)			value := (1+alpha)*Math.Ln(1+1/alpha)-Math.Ln(2*Pi)/2-Math.Ln(sigma)+(Math.Power((1+1/alpha),(1+alpha))*((x-mu)/sigma)/Math.Sqrt(2*Pi)-(alpha+1)*Math.Ln(1+(Math.Exp(Math.Power((1+1/alpha),(1+alpha))/Math.Sqrt(2 )*(x-mu)/sigma)/alpha));
+(*30*)		END LogFullLikelihood;
+		
+(*31*)		PROCEDURE LogPropLikelihood (node: WBDevUnivariate.Node; OUT value: REAL);
+(*32*)		BEGIN
+(*33*)			LogFullLikelihood(node, value);
+(*34*)		END LogPropLikelihood;
+		
+(*35*)		PROCEDURE LogPrior (node: WBDevUnivariate.Node; OUT value: REAL);
+(*36*)		VAR
+(*37*)			x, alpha, mu, sigma, Pi: REAL;
+(*38*)		BEGIN
+(*39*)			x := node.value;
+(*40*)			alpha := node.arguments[shape][0].Value();
+(*41*)			mu := node.arguments[location][1].Value();
+(*42*)			sigma := node.arguments[scale][2].Value();
+(*43*)			Pi := 3.14159265358979323846264338328;
+(*44*)			value := (Math.Power((1+1/alpha),(1+alpha))*((x-mu)/sigma)/Math.Sqrt(2*Pi)-(alpha+1)*Math.Ln(1+(Math.Exp(Math.Power((1+1/alpha),(1+alpha))/Math.Sqrt(2 )*(x-mu)/sigma)/alpha));
+(*45*)		END LogPrior;
+	
+(*46*)		PROCEDURE Cumulative (node: WBDevUnivariate.Node; x: REAL; OUT value: REAL);
+(*47*)		VAR
+(*48*)			x, alpha, mu, sigma: REAL;
+(*49*)		BEGIN
+(*50*)			(*		HALT(126);		*)
+(*51*)			x := node.value;
+(*52*)			alpha := node.arguments[shape][0].Value();
+(*53*)			mu := node.arguments[location][1].Value();
+(*54*)			sigma := node.arguments[scale][2].Value();
+(*55*)			value := 1-1/(Math.Power((1+(Math.Exp((Math.Power((1+1/alpha),(1+alpha)))*(x-mu))/alpha)),alpha))
+(*56*)		END Cumulative;
+	
+(*57*)		PROCEDURE DrawSample (node: WBDevUnivariate.Node; censoring: INTEGER; OUT sample: REAL);
+(*58*)		VAR
+(*59*)			mu, tau, left, right: REAL;
+(*59*)		END DrawSample;
+			
+		PROCEDURE (f: Factory) New (option: INTEGER): WBDevUnivariate.Node;
+		VAR
+			node: WBDevUnivariate.Node;
+			stdNode: StdNode; left: Left; right: Right; interval: Interval;
+		BEGIN
+			CASE option OF
+			|WBDevUnivariate.noCensoring:
+				NEW(stdNode);
+				node := stdNode;
+			|WBDevUnivariate.leftCensored:
+				NEW(left);
+				node := left;
+			|WBDevUnivariate.rightCensored:
+				NEW(right);
+				node := right;
+			|WBDevUnivariate.intervalCensored:
+				NEW(interval);
+				node := interval;
+			END;
+			node.SetCumulative(Cumulative);
+			node.SetDeclareArgTypes(DeclareArgTypes);
+			node.SetDeclareProperties(DeclareProperties);
+			node.SetDrawSample(DrawSample);
+			node.SetLogFullLikelihood(LogFullLikelihood);
+			node.SetLogPropLikelihood(LogPropLikelihood);
+			node.SetLogPrior(LogPrior);
+			node.SetNaturalBounds(NaturalBounds);
+			node.Initialize;
+			RETURN node;
+		END New;
+		
+		PROCEDURE Install*;
+		BEGIN
+			WBDevUnivariate.Install(fact);
+		END Install;
+		
+		PROCEDURE Init;
+		VAR
+			f: Factory;
+		BEGIN
+(*5*)			log2Pi := Math.Ln(2 * Math.Pi());
+			NEW(f); fact := f;
+		END Init;
+
+	BEGIN
+		Init;
+(*1*)	END WBDevMSNBurr2aTemplate.
